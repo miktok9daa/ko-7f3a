@@ -216,14 +216,13 @@ def generate_word_subtitles():
     import os
     
     # Download Vosk model if not exists
-    # Download Vosk model if not exists
-    model_path = "vosk-model-small-kr-0.4"
+    model_path = "vosk-model-small-ko-0.22"
     if not os.path.exists(model_path):
-        print("[subs] Downloading Vosk Korean model (~45 MB)...")
+        print("[subs] Downloading Vosk Korean model (~82 MB)...")
         import urllib.request
         import zipfile
         
-        url = "https://alphacephei.com/vosk/models/vosk-model-small-kr-0.4.zip"
+        url = "https://alphacephei.com/vosk/models/vosk-model-small-ko-0.22.zip"
         zip_path = "vosk-model.zip"
         
         urllib.request.urlretrieve(url, zip_path)
