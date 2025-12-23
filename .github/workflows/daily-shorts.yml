@@ -19,16 +19,16 @@ jobs:
         python-version: "3.11"
         cache: 'pip'
 
-    - name: Install FFmpeg
+    - name: Install FFmpeg and Korean Fonts
       run: |
         sudo apt-get update
-        sudo apt-get install -y ffmpeg
+        sudo apt-get install -y ffmpeg fonts-noto-cjk
 
     - name: Cache Vosk Model
       uses: actions/cache@v3
       with:
-        path: vosk-model-small-de-0.15
-        key: vosk-de-model-${{ runner.os }}
+        path: vosk-model-small-ko-0.22
+        key: vosk-ko-model-${{ runner.os }}
 
     - name: Install dependencies
       run: |
