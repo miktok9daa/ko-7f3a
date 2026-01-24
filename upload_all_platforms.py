@@ -21,6 +21,7 @@ from upload_tiktok import upload_to_tiktok
 from upload_facebook import upload_to_facebook
 from upload_threads import upload_to_threads
 from upload_twitter import upload_to_twitter
+from upload_vk import upload_to_vk
 
 def main():
     """Upload video to all configured platforms."""
@@ -36,20 +37,20 @@ def main():
         story = story_file.read_text(encoding='utf-8')
         # Use first sentence as title
         title_parts = story.split('.')
-        title = title_parts[0][:100] if title_parts else "História das mulheres antigas"
+        title = title_parts[0][:100] if title_parts else "고대 여성들의 역사"
     else:
-        title = f"Geschichte der Frauen in der Antike - {datetime.date.today()}"
+        title = f"고대 여성들의 역사 - {datetime.date.today()}"
     
-    # German description - topic-relevant, no AI mentions
-    description = f"""Entdecke die faszinierende Geschichte der Frauen in den antiken Zivilisationen.
+    # Korean description - topic-relevant, no AI mentions
+    description = f"""고대 문명에서 여성들의 매혹적인 역사를 발견하세요.
 
-Erforsche die Gesetze, Bräuche, Traditionen und legendären Persönlichkeiten, die die Geschichte geprägt haben.
+역사에 길이 남을 법과 관습, 전통 그리고 전설적인 인물들을 탐구해보세요.
 
-#Shorts #FrauenGeschichte #AntikeGeschichte #Bildung"""
+#Shorts #여성역사 #고대역사 #교육"""
     
     tags = [
-        'Geschichte', 'Antike Frauen', 'Historische Fakten',
-        'Shorts', 'Reels', 'Bildung', 'Kultur'
+        '역사', '고대 여성', '역사적 사실',
+        'Shorts', 'Reels', '교육', '문화'
     ]
     
     results = {}
@@ -161,6 +162,24 @@ Erforsche die Gesetze, Bräuche, Traditionen und legendären Persönlichkeiten, 
             results['twitter'] = None
     else:
         print("⏭️  Skipping Twitter (credentials not set)")
+    
+    # Upload to VK
+    if all([
+        os.getenv('VK_ACCESS_TOKEN'),
+        os.getenv('VK_GROUP_ID')
+    ]):
+        print("\n" + "="*60)
+        print("🔵 Uploading to VK...")
+        print("="*60)
+        try:
+            result = upload_to_vk(video_file, title, description)
+            results['vk'] = result
+            print(f"✅ VK: Uploaded successfully")
+        except Exception as e:
+            print(f"❌ VK failed: {e}")
+            results['vk'] = None
+    else:
+        print("⏭️  Skipping VK (credentials not set)")
     
     # Summary
     print("\n" + "="*60)

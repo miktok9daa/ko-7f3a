@@ -10,26 +10,40 @@ This script:
 import requests
 from urllib.parse import quote
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 def generate_new_topics(count=100):
-    """Generate new Portuguese topics about ancient women."""
+    """Generate new Korean topics about ancient women using paid Pollinations API."""
     
-    base_url = "https://text.pollinations.ai/"
+    api_key = os.getenv("POLLINATIONS_API_KEY")
+    if not api_key:
+        raise ValueError("POLLINATIONS_API_KEY environment variable is required for paid API")
+    
     system = (
-        "Você é um historiador especializado na história das mulheres nas civilizações antigas. "
-        f"Crie uma lista de {count} tópicos únicos em português. "
-        "Cada tópico deve ser curto (5-10 palavras), interessante e educativo. "
-        "Os tópicos devem cobrir: as leis, os costumes, as mulheres famosas, as profissões, a religião, a cultura, a arte. "
-        "Produza APENAS os tópicos, um por linha, sem números ou marcadores."
+        "당신은 고대 문명의 여성 역사를 전문으로 하는 역사학자입니다. "
+        f"한국어로 {count}개의 고유한 주제 목록을 만드세요. "
+        "각 주제는 짧고(5-10단어), 흥미롭고 교육적이어야 합니다. "
+        "주제는 법률, 관습, 유명한 여성, 직업, 종교, 문화, 예술을 다루어야 합니다. "
+        "주제만을 한 줄에 하나씩 번호나 표시 없이 출력하세요."
     )
     
-    prompt = f"Crie {count} tópicos únicos sobre mulheres nas civilizações antigas"
+    prompt = f"고대 문명의 여성들에 대한 {count}개의 고유한 주제를 만들어주세요"
     
-    url = base_url + quote(prompt)
-    params = {"model": "openai", "temperature": 0.9, "system": system}
+    url = f"https://gen.pollinations.ai/text/{quote(prompt)}"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    params = {
+        "model": "nova-fast",
+        "temperature": 0.9,
+        "system": system,
+        "json": False
+    }
     
-    print(f"[topics] Generating {count} new Portuguese topics...")
-    r = requests.get(url, params=params, timeout=120)
+    print(f"[topics] Generating {count} new Korean topics...")
+    r = requests.get(url, headers=headers, params=params, timeout=120)
     r.raise_for_status()
     
     # Parse topics
