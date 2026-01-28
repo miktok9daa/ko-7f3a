@@ -37,7 +37,8 @@ ANIMATED_VIDEO = OUTPUT_DIR / "animated.mp4"
 VIDEO_WITH_SUBS = OUTPUT_DIR / "video_with_subs.mp4"
 FINAL_VIDEO = OUTPUT_DIR / "final_video.mp4"
 
-WHISPER_MODEL_NAME = "small"
+# VOSK MODEL FOR KOREAN SPEECH RECOGNITION
+VOSK_MODEL_PATH = "vosk-model-small-ko-0.22"
 
 # ----------------------------------------
 
@@ -50,10 +51,38 @@ def ensure_dirs():
         f.unlink()
 
 def choose_topic_for_today():
+    """Choose a random topic that hasn't been used yet, or fallback to cycling if all topics used."""
     with open(TOPICS_FILE, "r", encoding="utf-8") as f:
-        topics = [line.strip() for line in f if line.strip()]
-    today = datetime.date.today()
-    return topics[today.toordinal() % len(topics)]
+        all_topics = [line.strip() for line in f if line.strip()]
+    
+    # Load used topics
+    used_topics_file = "used_topics.txt"
+    if os.path.exists(used_topics_file):
+        with open(used_topics_file, "r", encoding="utf-8") as f:
+            used_topics = [line.strip() for line in f if line.strip()]
+    else:
+        used_topics = []
+    
+    # Find unused topics
+    unused_topics = [topic for topic in all_topics if topic not in used_topics]
+    
+    if unused_topics:
+        # Choose a random unused topic
+        selected_topic = random.choice(unused_topics)
+        print(f"[topics] Found {len(unused_topics)} unused topics, randomly selected: {selected_topic}")
+    else:
+        # If all topics have been used, log and fall back to cycling (but save the history anyway)
+        today = datetime.date.today()
+        fallback_index = today.toordinal() % len(all_topics)
+        selected_topic = all_topics[fallback_index]
+        print(f"[topics] WARNING: All topics have been used at least once. Reusing from the pool (day {fallback_index})")
+        print(f"[topics] Randomly selected: {selected_topic}")
+    
+    # Add to used topics file
+    with open(used_topics_file, "a", encoding="utf-8") as f:
+        f.write(f"{selected_topic}\n")
+    
+    return selected_topic
 
 def generate_story_with_pollinations(topic: str) -> str:
     """Generate a short Korean story about ancient women's history using paid Pollinations API."""
@@ -153,7 +182,8 @@ def generate_image(scene: str, idx: int) -> Path:
     
     # Build URL with enhanced parameters for photorealism and safety
     url = f"https://image.pollinations.ai/prompt/{safe_prompt}"
-    headers = {"Authorization": f"Bearer {os.getenv('POLLINATIONS_API_KEY')}"}
+    # Remove authentication header for now - API should work without it
+    # headers = {"Authorization": f"Bearer {os.getenv('POLLINATIONS_API_KEY')}"}
     params = {
         "width": IMAGE_WIDTH,
         "height": IMAGE_HEIGHT,
@@ -167,12 +197,12 @@ def generate_image(scene: str, idx: int) -> Path:
     out = IMAGES_DIR / f"scene_{idx:02d}.jpg"
     print(f"[image] Generating image {idx+1}/{NUM_IMAGES}: {scene[:50]}...")
     
-    
     # Retry logic with exponential backoff (longer waits for rate limits)
     max_retries = 5
     for attempt in range(max_retries):
         try:
-            r = requests.get(url, headers=headers, params=params, timeout=180)
+            # Remove headers parameter - API should work without authentication
+            r = requests.get(url, params=params, timeout=180)
             r.raise_for_status()
             out.write_bytes(r.content)
             time.sleep(2)  # Small delay between successful requests
@@ -295,16 +325,20 @@ def generate_word_subtitles():
                 'end': word_info['end']
             })
     
-    # Create ASS subtitle file
+    # Create ASS subtitle file with proper Korean encoding
     ass_content = """[Script Info]
 Title: Korean History
 ScriptType: v4.00+
-
-[V4+ Styles]
+Collisions: Normal
+PlayDepth: 0
+PlayResX: 1920
+PlayResY: 1080
+ScaledBorderAndShadow: yes
+LastStyleStorage: Default
+\n[V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Noto Sans CJK KR,16,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,2,1,5,10,10,50,1
-
-[Events]
+Style: Default,Microsoft JhengHei UI,24,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,2,1,5,10,10,50,1
+\n[Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     
@@ -316,10 +350,12 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         start_time = f"{int(start//3600)}:{int((start%3600)//60):02d}:{start%60:.2f}"
         end_time = f"{int(end//3600)}:{int((end%3600)//60):02d}:{end%60:.2f}"
         
+        # Escape special characters in ASS format
+        text = text.replace('\\', '\\\\').replace('{', '\\{').replace('}', '\\}')
         ass_content += f"Dialogue: 0,{start_time},{end_time},Default,,0,0,0,,{text}\n"
     
-    # Save ASS file
-    with open(SUBS_FILE, "w", encoding="utf-8") as f:
+    # Save ASS file with proper BOM for UTF-8 (ensures correct rendering)
+    with open(SUBS_FILE, "w", encoding="utf-8-sig") as f:
         f.write(ass_content)
     
     print(f"[subs] WORD-BY-WORD subtitles saved ({len(words)} words)")
@@ -494,7 +530,7 @@ def main():
     # 4. Generate narration with TTS
     generate_tts(story)
     
-    # 5. Generate word-level UPPERCASE subtitles with Whisper
+    # 5. Generate word-level UPPERCASE subtitles with Vosk
     generate_word_subtitles()
     
     # 6. Create animated slideshow with Ken Burns effect

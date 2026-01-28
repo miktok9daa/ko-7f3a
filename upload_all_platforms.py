@@ -24,11 +24,15 @@ from upload_twitter import upload_to_twitter
 from upload_vk import upload_to_vk
 
 def main():
-    """Upload video to all configured platforms."""
+    """Upload video to all configured platforms with enhanced error handling."""
+    print("\n" + "="*80)
+    print("🚀 MULTI-PLATFORM UPLOAD STARTING")
+    print("="*80)
     video_file = Path('output/final_video.mp4')
     
     if not video_file.exists():
         print("[upload] ❌ No video found at output/final_video.mp4")
+        print("="*80)
         return
     
     # Read story for metadata
@@ -41,13 +45,17 @@ def main():
     else:
         title = f"고대 여성들의 역사 - {datetime.date.today()}"
     
-    # Korean description - topic-relevant, no AI mentions
-    description = f"""고대 문명에서 여성들의 매혹적인 역사를 발견하세요.
+    # Platform-specific content
+    descriptions = {
+        'youtube': f"{story[:150] if len(story) > 150 else story} #여성역사 #고대역사 #역사 #교육",
+        'instagram': f"{story[:2200] if len(story) > 2200 else story}\n\n#여성역사 #고대역사 #역사 #교육 #Shorts #Reels",
+        'tiktok': f"{story[:2200] if len(story) > 2200 else story} #여성역사 #고대역사 #역사 #교육 #FYP",
+        'facebook': f"{story[:63206] if len(story) > 63206 else story}\n\n#여성역사 #고대역사 #역사 #교육",
+        'threads': f"{story[:500] if len(story) > 500 else story} #여성역사 #고대역사 #역사 #교육",
+        'twitter': f"{story[:280] if len(story) > 280 else story} #여성역사 #고대역사 #역사",
+        'vk': f"{story[:220] if len(story) > 220 else story}\n\n#여성역사 #고대역사 #역사 #교육"
+    }
 
-역사에 길이 남을 법과 관습, 전통 그리고 전설적인 인물들을 탐구해보세요.
-
-#Shorts #여성역사 #고대역사 #교육"""
-    
     tags = [
         '역사', '고대 여성', '역사적 사실',
         'Shorts', 'Reels', '교육', '문화'
@@ -65,12 +73,12 @@ def main():
         print("📺 Uploading to YouTube...")
         print("="*60)
         try:
-            result = upload_to_youtube(video_file, title, description, tags)
+            result = upload_to_youtube(video_file, title, descriptions['youtube'], tags)
             results['youtube'] = result
             print(f"✅ YouTube: https://youtube.com/shorts/{result['id']}")
         except Exception as e:
             print(f"❌ YouTube failed: {e}")
-            results['youtube'] = None
+            results['youtube'] = {'error': str(e)}
     else:
         print("⏭️  Skipping YouTube (credentials not set)")
     
@@ -83,12 +91,12 @@ def main():
         print("📸 Uploading to Instagram...")
         print("="*60)
         try:
-            result = upload_to_instagram(video_file, description)
+            result = upload_to_instagram(video_file, descriptions['instagram'])
             results['instagram'] = result
             print(f"✅ Instagram: Uploaded successfully")
         except Exception as e:
             print(f"❌ Instagram failed: {e}")
-            results['instagram'] = None
+            results['instagram'] = {'error': str(e)}
     else:
         print("⏭️  Skipping Instagram (credentials not set)")
     
@@ -98,12 +106,12 @@ def main():
         print("🎵 Uploading to TikTok...")
         print("="*60)
         try:
-            result = upload_to_tiktok(video_file, title, description)
+            result = upload_to_tiktok(video_file, title, descriptions['tiktok'])
             results['tiktok'] = result
             print(f"✅ TikTok: Uploaded successfully")
         except Exception as e:
             print(f"❌ TikTok failed: {e}")
-            results['tiktok'] = None
+            results['tiktok'] = {'error': str(e)}
     else:
         print("⏭️  Skipping TikTok (credentials not set)")
     
@@ -116,12 +124,12 @@ def main():
         print("📘 Uploading to Facebook...")
         print("="*60)
         try:
-            result = upload_to_facebook(video_file, description)
+            result = upload_to_facebook(video_file, descriptions['facebook'])
             results['facebook'] = result
             print(f"✅ Facebook: Uploaded successfully")
         except Exception as e:
             print(f"❌ Facebook failed: {e}")
-            results['facebook'] = None
+            results['facebook'] = {'error': str(e)}
     else:
         print("⏭️  Skipping Facebook (credentials not set)")
     
@@ -134,12 +142,12 @@ def main():
         print("🧵 Uploading to Threads...")
         print("="*60)
         try:
-            result = upload_to_threads(video_file, description)
+            result = upload_to_threads(video_file, descriptions['threads'])
             results['threads'] = result
             print(f"✅ Threads: Uploaded successfully")
         except Exception as e:
             print(f"❌ Threads failed: {e}")
-            results['threads'] = None
+            results['threads'] = {'error': str(e)}
     else:
         print("⏭️  Skipping Threads (credentials not set)")
     
@@ -154,12 +162,12 @@ def main():
         print("🐦 Uploading to Twitter/X...")
         print("="*60)
         try:
-            result = upload_to_twitter(video_file, description)
+            result = upload_to_twitter(video_file, descriptions['twitter'])
             results['twitter'] = result
             print(f"✅ Twitter: Uploaded successfully")
         except Exception as e:
             print(f"❌ Twitter failed: {e}")
-            results['twitter'] = None
+            results['twitter'] = {'error': str(e)}
     else:
         print("⏭️  Skipping Twitter (credentials not set)")
     
@@ -172,23 +180,47 @@ def main():
         print("🔵 Uploading to VK...")
         print("="*60)
         try:
-            result = upload_to_vk(video_file, title, description)
+            result = upload_to_vk(video_file, title, descriptions['vk'])
             results['vk'] = result
             print(f"✅ VK: Uploaded successfully")
         except Exception as e:
             print(f"❌ VK failed: {e}")
-            results['vk'] = None
+            results['vk'] = {'error': str(e)}
     else:
         print("⏭️  Skipping VK (credentials not set)")
     
-    # Summary
-    print("\n" + "="*60)
-    print("📊 Upload Summary")
-    print("="*60)
+    # Detailed Summary
+    print("\n" + "="*80)
+    print("📊 MULTI-PLATFORM UPLOAD SUMMARY")
+    print("="*80)
+
+    success_count = 0
+    total_count = len(results)
+
     for platform, result in results.items():
-        status = "✅ Success" if result else "❌ Failed"
-        print(f"{platform.capitalize()}: {status}")
-    print("="*60)
+        if result and 'error' not in result:
+            status = "✅ SUCCESS"
+            success_count += 1
+            if platform == 'youtube' and result.get('id'):
+                print(f"{platform.capitalize():<12}: {status} - https://youtube.com/shorts/{result['id']}")
+            else:
+                post_id = result.get('id', 'unknown')
+                print(f"{platform.capitalize():<12}: {status} - ID: {post_id}")
+        else:
+            status = "❌ FAILED"
+            error_msg = result.get('error', 'Unknown error') if result else 'Not attempted'
+            print(f"{platform.capitalize():<12}: {status} - {error_msg}")
+
+    print("="*80)
+    print(f"📈 Success Rate: {success_count}/{total_count} platforms")
+    print("="*80)
+
+    if success_count > 0:
+        print("🎉 Multi-platform upload completed!")
+        print("Check your social media accounts to see the published content.")
+    else:
+        print("⚠️  No platforms were successfully uploaded to.")
+        print("Check your API credentials and try again.")
 
 if __name__ == '__main__':
     main()
