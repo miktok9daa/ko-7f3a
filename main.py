@@ -326,6 +326,7 @@ def generate_word_subtitles():
             })
     
     # Create ASS subtitle file with maximum compatibility for Korean in GitHub Actions
+    # Using a font configuration that ensures Korean characters are properly rendered
     ass_content = """[Script Info]
 Title: Korean History
 ScriptType: v4.00+
@@ -337,8 +338,7 @@ ScaledBorderAndShadow: yes
 LastStyleStorage: Default
 \n[V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,Noto Sans CJK KR,28,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,2,1,5,10,10,50,1
-Style: KoreanFallback,NanumGothic,28,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,2,1,5,10,10,50,1
+Style: Default,Noto Sans CJK KR:B,28,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,1,0,0,0,100,100,0,0,1,2,1,2,10,10,50,1
 \n[Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
@@ -353,7 +353,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         
         # Escape special characters in ASS format
         text = text.replace('\\', '\\\\').replace('{', '\\{').replace('}', '\\}')
-        # Use the primary Korean font style
+        # Use the primary Korean font style with proper font specification
         ass_content += f"Dialogue: 0,{start_time},{end_time},Default,,0,0,0,,{text}\n"
     
     # Save ASS file with proper BOM for UTF-8 (ensures correct rendering)
