@@ -23,7 +23,7 @@ def generate_new_topics(count=100):
     if not api_key:
         raise ValueError("POLLINATIONS_API_KEY environment variable is required for paid API")
     
-    system = (
+    system_prompt = (
         "당신은 고대 문명의 여성 역사를 전문으로 하는 역사학자입니다. "
         f"한국어로 {count}개의 고유한 주제 목록을 만드세요. "
         "각 주제는 짧고(5-10단어), 흥미롭고 교육적이어야 합니다. "
@@ -31,24 +31,32 @@ def generate_new_topics(count=100):
         "주제만을 한 줄에 하나씩 번호나 표시 없이 출력하세요."
     )
     
-    prompt = f"고대 문명의 여성들에 대한 {count}개의 고유한 주제를 만들어주세요"
+    user_prompt = f"고대 문명의 여성들에 대한 {count}개의 고유한 주제를 만들어주세요"
     
-    url = f"https://gen.pollinations.ai/text/{quote(prompt)}"
-    headers = {"Authorization": f"Bearer {api_key}"}
-    params = {
-        "model": "nova-fast",
-        "temperature": 0.9,
-        "system": system,
-        "json": False
+    url = "https://gen.pollinations.ai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "openai",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "temperature": 0.9
     }
     
-    print(f"[topics] Generating {count} new Korean topics...")
-    r = requests.get(url, headers=headers, params=params, timeout=120)
+    print(f"[topics] Generating {count} new Korean topics via paid API...")
+    r = requests.post(url, headers=headers, json=payload, timeout=120)
     r.raise_for_status()
+    
+    response_data = r.json()
+    text = response_data['choices'][0]['message']['content'].strip()
     
     # Parse topics
     topics = []
-    for line in r.text.strip().split('\n'):
+    for line in text.split('\n'):
         # Remove numbering and clean
         cleaned = line.strip()
         # Remove common prefixes

@@ -51,70 +51,72 @@ def ensure_dirs():
         f.unlink()
 
 def choose_topic_for_today():
-    """Choose a random topic that hasn't been used yet, or fallback to cycling if all topics used."""
+    """Choose a unique topic based on the current date to ensure daily variety in GitHub Actions."""
+    if not os.path.exists(TOPICS_FILE):
+        print(f"[topics] Error: {TOPICS_FILE} not found!")
+        return "Ancient Women's History"
+
     with open(TOPICS_FILE, "r", encoding="utf-8") as f:
         all_topics = [line.strip() for line in f if line.strip()]
     
-    # Load used topics
-    used_topics_file = "used_topics.txt"
-    if os.path.exists(used_topics_file):
-        with open(used_topics_file, "r", encoding="utf-8") as f:
-            used_topics = [line.strip() for line in f if line.strip()]
-    else:
-        used_topics = []
+    if not all_topics:
+        return "Ancient Women's History"
+
+    # Use today's date to get a stable but changing index
+    # toordinal() returns an integer representing the day (e.g. 738000)
+    today = datetime.date.today()
+    index = today.toordinal() % len(all_topics)
+    selected_topic = all_topics[index]
     
-    # Find unused topics
-    unused_topics = [topic for topic in all_topics if topic not in used_topics]
+    print(f"[topics] Date: {today}, Index: {index}/{len(all_topics)}, Selected: {selected_topic}")
     
-    if unused_topics:
-        # Choose a random unused topic
-        selected_topic = random.choice(unused_topics)
-        print(f"[topics] Found {len(unused_topics)} unused topics, randomly selected: {selected_topic}")
-    else:
-        # If all topics have been used, log and fall back to cycling (but save the history anyway)
-        today = datetime.date.today()
-        fallback_index = today.toordinal() % len(all_topics)
-        selected_topic = all_topics[fallback_index]
-        print(f"[topics] WARNING: All topics have been used at least once. Reusing from the pool (day {fallback_index})")
-        print(f"[topics] Randomly selected: {selected_topic}")
-    
-    # Add to used topics file
-    with open(used_topics_file, "a", encoding="utf-8") as f:
-        f.write(f"{selected_topic}\n")
+    # Optional: Log to used_topics.txt (though it won't persist in GHA)
+    unused_topics_file = "used_topics.txt"
+    with open(unused_topics_file, "a", encoding="utf-8") as f:
+        f.write(f"{today}: {selected_topic}\n")
     
     return selected_topic
 
 def generate_story_with_pollinations(topic: str) -> str:
-    """Generate a short Korean story about ancient women's history using paid Pollinations API."""
+    """Generate a short Korean story about ancient women's history using the modern paid Pollinations API."""
     api_key = os.getenv("POLLINATIONS_API_KEY")
     if not api_key:
         raise ValueError("POLLINATIONS_API_KEY environment variable is required for paid API")
 
-    system = (
+    system_prompt = (
         "당신은 고대 문명의 여성 역사를 전문으로 하는 역사학자입니다. "
         "30초 분량(80-130 단어)의 짧고 흥미로운 이야기를 한국어로 작성하세요. "
         "실제 역사적 사실, 법률, 관습 또는 전통을 이야기하세요. "
         "생동감 있고 매력적인 문체를 사용하세요. 제목을 포함하지 마세요."
     )
-    prompt = f"주제: {topic}. 흥미로운 역사적 사실을 이야기해 주세요."
+    user_prompt = f"주제: {topic}. 흥미로운 역사적 사실을 이야기해 주세요."
 
-    url = f"https://gen.pollinations.ai/text/{quote(prompt)}"
-    headers = {"Authorization": f"Bearer {api_key}"}
-    params = {
-        "model": "nova-fast",
-        "temperature": 1.0,
-        "system": system,
-        "json": False
+    # Use the OpenAI-compatible chat completions endpoint as per documentation
+    url = "https://gen.pollinations.ai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "openai",  # High quality text model
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "temperature": 0.8
     }
 
-    print(f"[story] Generating Korean story for topic: {topic}")
-    r = requests.get(url, headers=headers, params=params, timeout=60)
+    print(f"[story] Generating Korean story for topic: {topic} using paid API...")
+    r = requests.post(url, headers=headers, json=payload, timeout=60)
     r.raise_for_status()
-    text = r.text.strip()
+    
+    response_data = r.json()
+    text = response_data['choices'][0]['message']['content'].strip()
 
+    # Post-process: ensure word count is within limits
     words = text.split()
     if len(words) > STORY_MAX_WORDS:
-        text = " ".join(words[:STORY_MAX_WORDS])
+        text = " ".join(words[:STORY_MAX_WORDS]) + "."
 
     with open(STORY_FILE, "w", encoding="utf-8") as f:
         f.write(text)
@@ -161,7 +163,10 @@ def generate_scene_descriptions(story: str) -> list:
     return unique_scenes
 
 def generate_image(scene: str, idx: int) -> Path:
-    """Generate a unique image for each scene using Pollinations AI."""
+    """Generate a unique image for each scene using unified Pollinations AI gateway with authentication."""
+    api_key = os.getenv("POLLINATIONS_API_KEY")
+    # Note: Secret keys (sk_) have no rate limits as per api (6).json
+    
     # Create unique seed for each image based on scene content + index
     seed = hash(scene + str(idx)) % 1000000
     
@@ -175,65 +180,49 @@ def generate_image(scene: str, idx: int) -> Path:
         f"sharp focus, depth of field, bokeh, cinematic composition, "
         f"masterpiece, award-winning photography, volumetric lighting, "
         f"hyper-detailed skin texture, realistic eyes with catchlights, "
-        f"museum quality art, historical accuracy, elegant and graceful pose, "
-        f"appropriate for all audiences, clean and tasteful"
+        f"museum quality art, historical accuracy, elegant and graceful pose"
     )
     safe_prompt = quote(prompt)
     
-    # Build URL with enhanced parameters for photorealism and safety
-    url = f"https://image.pollinations.ai/prompt/{safe_prompt}"
-    # Remove authentication header for now - API should work without it
-    # headers = {"Authorization": f"Bearer {os.getenv('POLLINATIONS_API_KEY')}"}
+    # Use unified gateway endpoint: gen.pollinations.ai
+    # Documentation says: curl 'https://gen.pollinations.ai/image/a%20cat?model=flux' -H 'Authorization: Bearer YOUR_API_KEY'
+    url = f"https://gen.pollinations.ai/image/{safe_prompt}"
+    
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    
     params = {
         "width": IMAGE_WIDTH,
         "height": IMAGE_HEIGHT,
-        "model": "flux",  # Use flux model
+        "model": "flux",  # Premium flux model
         "seed": seed,
-        "safe": True,  # Enable strict content filtering to prevent NSFW (boolean)
-        "nologo": True,  # Explicitly request no watermarks
+        "safe": True,
+        "nologo": True,
         "negative_prompt": "worst quality, blurry, watermark, logo, text, signature, branded content, inappropriate, revealing, suggestive, nude, sexual, violence, blood, gore"
     }
 
     out = IMAGES_DIR / f"scene_{idx:02d}.jpg"
-    print(f"[image] Generating image {idx+1}/{NUM_IMAGES}: {scene[:50]}...")
+    print(f"[image] Generating image {idx+1}/{NUM_IMAGES} via unified gateway...")
     
-    # Retry logic with exponential backoff (longer waits for rate limits)
-    max_retries = 5
+    # Retry logic with exponential backoff
+    max_retries = 3
     for attempt in range(max_retries):
         try:
-            # Remove headers parameter - API should work without authentication
-            r = requests.get(url, params=params, timeout=180)
+            r = requests.get(url, params=params, headers=headers, timeout=120)
             r.raise_for_status()
             out.write_bytes(r.content)
-            time.sleep(2)  # Small delay between successful requests
             return out
-        except requests.exceptions.HTTPError as e:
-            # Handle 429 rate limits with much longer waits
-            if e.response.status_code == 429:
-                wait_time = (attempt + 1) * 20  # 20, 40, 60, 80, 100 seconds
-                if attempt < max_retries - 1:
-                    print(f"[image] Rate limited! Retry {attempt+1}/{max_retries} (waiting {wait_time}s)")
-                    time.sleep(wait_time)
-                else:
-                    print(f"[image] Failed to generate image {idx+1}: Rate limit exceeded")
-                    raise e
-            else:
-                wait_time = (attempt + 1) * 5
-                if attempt < max_retries - 1:
-                    print(f"[image] HTTP {e.response.status_code}. Retry {attempt+1}/{max_retries} (waiting {wait_time}s)")
-                    time.sleep(wait_time)
-                else:
-                    print(f"[image] Failed to generate image {idx+1}: {e}")
-                    raise e
         except Exception as e:
-            wait_time = (attempt + 1) * 5
+            wait_time = (attempt + 1) * 10
             if attempt < max_retries - 1:
-                print(f"[image] Retry {attempt+1}/{max_retries} (waiting {wait_time}s)")
+                print(f"[image] Attempt {attempt+1} failed. Retrying in {wait_time}s... Error: {e}")
                 time.sleep(wait_time)
             else:
-                print(f"[image] Failed to generate image {idx+1}: {e}")
+                print(f"[image] Failed to generate image {idx+1} after {max_retries} attempts.")
                 raise e
     return out
+
 
 def generate_images(scenes: list):
     """Generate unique images for each scene SEQUENTIALLY (avoids rate limits)"""

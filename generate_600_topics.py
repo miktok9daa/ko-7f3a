@@ -7,34 +7,51 @@ from urllib.parse import quote
 from pathlib import Path
 import time
 
-def generate_french_topics_batch(batch_num, count=100):
-    """Generate a batch of Portuguese topics."""
+def generate_batch(batch_num, count=100):
+    """Generate a batch of Korean topics using paid Pollinations API."""
     
-    base_url = "https://text.pollinations.ai/"
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
     
-    # Simpler system prompt
-    system = (
+    api_key = os.getenv("POLLINATIONS_API_KEY")
+    
+    system_prompt = (
         "You are a historian specialized in ancient women's history. "
-        f"Create {count} unique topics in Portuguese about women in ancient civilizations. "
+        f"Create {count} unique topics in Korean about women in ancient civilizations. "
         "Each topic should be 5-10 words, interesting and educational. "
         "Cover: laws, customs, famous women, professions, religion, culture, art. "
         "Output ONLY the topics, one per line, no numbers or bullets."
     )
     
-    prompt = f"Generate {count} unique Portuguese topics about women in ancient civilizations"
+    user_prompt = f"Generate {count} unique Korean topics about women in ancient civilizations"
     
-    url = base_url + quote(prompt)
-    params = {"model": "openai", "temperature": 0.9, "system": system}
+    url = "https://gen.pollinations.ai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "openai",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        "temperature": 0.9
+    }
     
-    print(f"[batch {batch_num}] Generating {count} Portuguese topics...")
+    print(f"[batch {batch_num}] Generating {count} Korean topics via paid API...")
     
     try:
-        r = requests.get(url, params=params, timeout=120)
+        r = requests.post(url, headers=headers, json=payload, timeout=120)
         r.raise_for_status()
+        
+        response_data = r.json()
+        text = response_data['choices'][0]['message']['content'].strip()
         
         # Parse topics
         topics = []
-        for line in r.text.strip().split('\n'):
+        for line in text.split('\n'):
             cleaned = line.strip()
             # Remove common prefixes
             for prefix in ['- ', '* ', '• ', '→ ', '> ']:
@@ -61,7 +78,7 @@ def main():
     batches = 6  # 6 batches of 100 = 600 topics
     
     for i in range(batches):
-        topics = generate_french_topics_batch(i+1, 100)
+        topics = generate_batch(i+1, 100)
         all_topics.extend(topics)
         
         print(f"[progress] Total topics so far: {len(all_topics)}")
