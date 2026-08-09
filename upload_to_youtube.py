@@ -45,6 +45,15 @@ def get_authenticated_service():
 
 def upload_to_youtube(video_file, title, description, tags, category_id='22'):
     """Upload video to YouTube and return result."""
+    if not title:
+        title = "Shorts"
+    title = title.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    title = " ".join(title.split())
+    title = title.strip("|-–— ")
+    if len(title) > 100:
+        title = title[:97] + "..."
+    if not title or len(title.strip()) < 2:
+        title = "Shorts"
     youtube = get_authenticated_service()
     
     body = {

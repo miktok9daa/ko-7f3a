@@ -92,14 +92,32 @@ def get_video_title():
             native_title = native_first[:57] + "..." if len(native_first) > 60 else native_first
 
         if en_title and native_title:
-            return f"{en_title} | {native_title}"
+            title = f"{en_title} | {native_title}"
         elif en_title:
-            return en_title
+            title = en_title
         elif native_title:
-            return native_title
-        return ""
+            title = native_title
+        else:
+            title = ""
+
+        title = sanitize_youtube_title(title)
+        return title
     except Exception:
         return ""
+
+
+def sanitize_youtube_title(title):
+    """Sanitize title for YouTube: max 100 chars, no invalid chars."""
+    if not title:
+        return "Shorts"
+    title = title.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    title = " ".join(title.split())
+    title = title.strip("|-–— ")
+    if len(title) > 100:
+        title = title[:97] + "..."
+    if not title or len(title.strip()) < 2:
+        return "Shorts"
+    return title
 
 
 def get_latest_reel():
@@ -231,7 +249,7 @@ def upload_to_all_platforms(video_path, caption, category, phrases=None, video_t
                 elif platform_name == "instagram":
                     upload_result = upload_func(video_path, caption)
                 elif platform_name == "youtube":
-                    yt_title = video_title or category
+                    yt_title = sanitize_youtube_title(video_title or category)
                     upload_result = upload_func(video_path, yt_title, caption, ["history", "ancient", category.lower().replace(" ", "")])
                 elif platform_name == "vk":
                     upload_result = upload_func(video_path, caption)
