@@ -6,7 +6,7 @@ import google.generativeai as genai
 import os
 
 # Configure Gemini API
-api_key = os.getenv('GEMINI_API_KEY') or 'AIzaSyDSih7wfiLCUo6r7vvHdxQZJnL-vGWlh5s'
+api_key = os.getenv('GEMINI_API_KEY', '')
 genai.configure(api_key=api_key)
 
 def generate_german_topics():
